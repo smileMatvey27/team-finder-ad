@@ -1,0 +1,10 @@
+# pyproject.toml
+[tool.black]
+line-length = 88
+target-version = ['py311']  # Версия Python вашего проекта (3.11)
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_gitignore = true
+known_first_party = ["projects", "users"] # Ваши собственные приложения
