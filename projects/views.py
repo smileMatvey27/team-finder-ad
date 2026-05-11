@@ -4,21 +4,15 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from candf.constants import (
-    PROJECTS_PAGINATE,
-    SKILL_SEARCH_LIMITATION,
-    STATUS_CLOSED,
-    STATUS_OPEN,
-)
+from candf.constants import SKILL_SEARCH_LIMITATION, STATUS_CLOSED, STATUS_OPEN
 from candf.functions import paginate_queryset
 from projects.forms import ProjectForm
-
-from .models import Project, Skill
+from projects.models import Project, Skill
 
 
 def project_list(request):
     skill_name = request.GET.get("skill")
-    skills = Skill.objects.values_list('name', flat=True)
+    skills = Skill.objects.values_list("name", flat=True)
     projects = (
         Project.objects.select_related("owner")
         .prefetch_related("skills", "participants")
@@ -28,7 +22,7 @@ def project_list(request):
     if skill_name:
         projects = projects.filter(skills__name=skill_name).distinct()
         skill_now = skill_name
-    page = paginate_queryset(request, projects, PROJECTS_PAGINATE)
+    page = paginate_queryset(request, projects)
     return render(
         request,
         "projects/project_list.html",
@@ -75,6 +69,7 @@ def edit_project(request, project_id):
     )
 
 
+@login_required
 def complete_project(request, project_id):
     if request.method != "POST":
         return JsonResponse({"status": "error"})
@@ -88,12 +83,11 @@ def complete_project(request, project_id):
     return JsonResponse({"status": "ok", "project_status": STATUS_CLOSED})
 
 
+@login_required
 def toggle_participate(request, project_id):
     if request.method != "POST":
         return JsonResponse({"status": "error"})
     project = get_object_or_404(Project, id=project_id)
-    if not request.user.is_authenticated:
-        return JsonResponse({"status": "error"})
     if project.participants.filter(id=request.user.id).exists():
         project.participants.remove(request.user)
         return JsonResponse({"status": "ok", "participant": False})
@@ -110,12 +104,10 @@ def skill_search(request):
     return JsonResponse(sk_data, safe=False)
 
 
+@login_required
 def skills_add(request, project_id):
     if request.method != "POST":
         return JsonResponse({"error": "POST required"})
-
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Нет доступа"})
 
     project = get_object_or_404(Project, id=project_id)
 
@@ -146,13 +138,12 @@ def skills_add(request, project_id):
     )
 
 
+@login_required
 def remove_skill(request, project_id, skill_id):
     if request.method != "POST":
         return JsonResponse({"status": "error"})
     project = get_object_or_404(Project, id=project_id)
     skill = get_object_or_404(Skill, id=skill_id)
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Пользователь не авторизован"})
     if project.owner != request.user:
         return JsonResponse({"error": "У вас нет прав для выполнения этого действия"})
     if project.skills.filter(id=skill.id).exists():

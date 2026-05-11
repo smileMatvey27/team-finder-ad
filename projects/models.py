@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.urls import reverse
 
 from candf.constants import (
     PROJECT_NAME_MAX_LENGTH,
@@ -16,6 +17,11 @@ class Skill(models.Model):
     name = models.CharField(
         max_length=SKILL_NAME_MAX_LENGTH, unique=True, verbose_name="Название навыка"
     )
+
+    class Meta:
+        verbose_name = "Навык"
+        verbose_name_plural = "Навыки"
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -57,3 +63,6 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse("projects:project_detail", kwargs={"project_id": self.id})

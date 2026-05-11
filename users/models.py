@@ -2,11 +2,7 @@ import os
 from io import BytesIO
 
 from django.conf import settings
-from django.contrib.auth.models import (
-    AbstractBaseUser,
-    BaseUserManager,
-    PermissionsMixin,
-)
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.core.files.base import ContentFile
 from django.db import models
 from PIL import Image, ImageDraw, ImageFont
@@ -17,47 +13,13 @@ from candf.constants import (
     USER_AVATAR_FONT_PATH,
     USER_AVATAR_FONT_SIZE,
     USER_AVATAR_SIZE,
+    USER_AVATAR_TEXT_COLOR,
+    USER_AVATAR_TEXT_POSITION,
     USER_NAME_MAX_LENGTH,
     USER_PHONE_MAX_LENGTH,
     USER_SURNAME_MAX_LENGTH,
 )
-
-
-class UserManager(BaseUserManager):
-    def create_user(self, email, name, surname, phone, password=None):
-        if not email:
-            raise ValueError("Email обязателен")
-        if not name:
-            raise ValueError("Имя обязательно")
-        if not surname:
-            raise ValueError("Фамилия обязательна")
-        if not phone:
-            raise ValueError("Номер телефона обязателен")
-        user = self.model(
-            email=self.normalize_email(email),
-            name=name,
-            surname=surname,
-            phone=phone,
-            is_active=True,
-            is_staff=False,
-        )
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, email, name, surname, phone, password=None):
-        user = self.model(
-            email=self.normalize_email(email),
-            name=name,
-            surname=surname,
-            phone=phone,
-            is_active=True,
-            is_staff=True,
-            is_superuser=True,
-        )
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
+from users.managers import UserManager
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -91,11 +53,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+    def save(self, *args, **kwargs):
+        if not self.avatar:
+            self.generate_avatar()
+        super().save(*args, **kwargs)
+
     def generate_avatar(self):
         first_letter = self.name[0].upper() if self.name else "?"
-        colors = USER_AVATAR_COLORS
-        color_index = hash(self.email) % len(colors)
-        bg_color = colors[color_index]
+        color_index = hash(self.email) % len(USER_AVATAR_COLORS)
+        bg_color = USER_AVATAR_COLORS[color_index]
         image = Image.new("RGB", USER_AVATAR_SIZE, color=bg_color)
         draw = ImageDraw.Draw(image)
         font_path = os.path.join(
@@ -107,7 +73,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             font = ImageFont.load_default()
 
         try:
-            bbox = draw.textbbox((0, 0), first_letter, font=font)
+            bbox = draw.textbbox(USER_AVATAR_TEXT_POSITION, first_letter, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
         except:
@@ -116,7 +82,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         x = (USER_AVATAR_SIZE[0] - text_width) // 2
         y = (USER_AVATAR_SIZE[1] - text_height) // 2
 
-        draw.text((x, y), first_letter, fill="#FFFFFF", font=font)
+        draw.text((x, y), first_letter, fill=USER_AVATAR_TEXT_COLOR, font=font)
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         buffer.seek(0)
@@ -124,8 +90,3 @@ class User(AbstractBaseUser, PermissionsMixin):
         filename = f"avatar_{safe_email}.png"
         self.avatar.save(filename, ContentFile(buffer.read()), save=False)
         buffer.close()
-
-    def save(self, *args, **kwargs):
-        if not self.avatar:
-            self.generate_avatar()
-        super().save(*args, **kwargs)

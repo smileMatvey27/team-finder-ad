@@ -1,7 +1,7 @@
 from django import forms
 
 from candf.constants import EMAIL_ERROR
-from candf.functions import validate_url_for_gh
+from candf.mixins import GitHubURLMixin
 from users.models import User
 
 
@@ -24,7 +24,7 @@ class LoginForm(forms.Form):
     password = forms.CharField(widget=forms.PasswordInput)
 
 
-class EditProfileForm(forms.ModelForm):
+class EditProfileForm(GitHubURLMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = ["name", "surname", "avatar", "about", "phone", "github_url"]
@@ -56,10 +56,6 @@ class EditProfileForm(forms.ModelForm):
         if User.objects.exclude(id=self.instance.id).filter(phone=phone).exists():
             raise forms.ValidationError("Этот номер телефона уже используется")
         return phone
-
-    def clean_github_url(self):
-        url = self.cleaned_data.get("github_url")
-        return validate_url_for_gh(url)
 
 
 class ChangePasswordForm(forms.Form):
